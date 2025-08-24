@@ -31,11 +31,15 @@ class IacStack(Stack):
             timeout=Duration.seconds(15),
         )
 
-        # Create S3 bucket for file storage
+        # Create S3 bucket for file storage with unique name
+        import hashlib
+        import time
+        unique_suffix = hashlib.md5(f"{self.project_name}-{self.aws_account_id}-{str(int(time.time()))}".encode()).hexdigest()[:8]
+        
         file_bucket = s3.Bucket(
             self,
-            f"{self.project_name}UploadBucket",
-            bucket_name=f"{self.project_name.lower()}uploadbucket",
+            "FileUploadBucket",
+            bucket_name=f"{self.project_name.lower()}-uploads-{unique_suffix}",
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True
         )
