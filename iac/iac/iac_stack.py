@@ -3,6 +3,10 @@ from aws_cdk import (
     Duration,
     Stack,
     aws_lambda as _lambda,
+    aws_s3 as s3,
+    aws_iam as iam,
+    CfnOutput,
+    RemovalPolicy
 )
 from constructs import Construct
 
@@ -27,6 +31,32 @@ class IacStack(Stack):
             timeout=Duration.seconds(15),
         )
 
+        # Create S3 bucket for file storage
+        file_bucket = s3.Bucket(
+            self,
+            "dev-medias-pocUploadBucket",
+            bucket_name=f"{self.project_name}-dev-medias-poc-uploads-{self.aws_account_id}",
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True
+        )
+
+        # Create Lambda function for file upload
+        file_upload_fn = _lambda.Function(
+            self,
+            "FileUploadLambda",
+            runtime=_lambda.Runtime.PYTHON_3_10,
+            code=_lambda.Code.from_asset("../src"),
+            environment={
+                "STAGE": "TEST",
+                "BUCKET_NAME": file_bucket.bucket_name
+            },
+            handler="app.file_upload_handler.upload_base64_file_handler",
+            timeout=Duration.seconds(30),
+        )
+
+        # Grant S3 permissions to the file upload Lambda
+        file_bucket.grant_write(file_upload_fn)
+
         api = apigateway.LambdaRestApi(
             self,
             "SimpleApiGateway",
@@ -35,16 +65,14 @@ class IacStack(Stack):
             description="API Gateway for Lambda handler"
         )
 
-        # Output API Gateway console link
-        from aws_cdk import CfnOutput
-        CfnOutput(
+        # Create API Gateway for file upload
+        file_upload_api = apigateway.LambdaRestApi(
             self,
-            "ApiGatewayConsoleLink",
-            value=f"https://console.aws.amazon.com/apigateway/home?region={self.region}#/apis/{api.rest_api_id}/resources",
-            description="API Gateway Console Link"
+            "FileUploadApiGateway",
+            handler=file_upload_fn,
+            proxy=True,
+            description="API Gateway for file upload Lambda"
         )
-
-
 
 
                
