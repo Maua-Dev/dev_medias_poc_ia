@@ -20,7 +20,7 @@ class IacStack(Stack):
         lambda_fn = _lambda.Function(
             self,
             "SimpleFastAPILambda",
-            runtime=_lambda.Runtime.PYTHON_3_11,
+            runtime=_lambda.Runtime.PYTHON_3_10,
             code=_lambda.Code.from_asset("../src"),
             environment={"STAGE":"TEST"},
             handler="app.main.handler",
