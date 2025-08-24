@@ -35,7 +35,7 @@ class IacStack(Stack):
         file_bucket = s3.Bucket(
             self,
             "dev-medias-pocUploadBucket",
-            bucket_name=f"{self.project_name}-dev-medias-poc-uploads-{self.aws_account_id}",
+            bucket_name=f"{self.project_name}devmediaspocuploads{self.aws_account_id}",
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True
         )
