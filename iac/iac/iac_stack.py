@@ -23,7 +23,7 @@ class IacStack(Stack):
             runtime=_lambda.Runtime.PYTHON_3_10,
             code=_lambda.Code.from_asset("../src"),
             environment={"STAGE":"TEST"},
-            handler="app.main.handler",
+            handler="app.main.lambda_handler",
             timeout=Duration.seconds(15),
         )
 
@@ -34,6 +34,16 @@ class IacStack(Stack):
             proxy=True,
             description="API Gateway for Lambda handler"
         )
+
+        # Output API Gateway console link
+        from aws_cdk import CfnOutput
+        CfnOutput(
+            self,
+            "ApiGatewayConsoleLink",
+            value=f"https://console.aws.amazon.com/apigateway/home?region={self.region}#/apis/{api.rest_api_id}/resources",
+            description="API Gateway Console Link"
+        )
+
 
 
 
