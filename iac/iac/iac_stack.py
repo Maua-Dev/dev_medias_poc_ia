@@ -69,16 +69,13 @@ class IacStack(Stack):
             timeout=Duration.seconds(180),  # Increased timeout for LLM processing
         )
 
-        # Create IAM policy for Bedrock access
+        # Create IAM policy for Bedrock access (simplified for compatibility)
         bedrock_policy = iam.PolicyStatement(
             effect=iam.Effect.ALLOW,
             actions=[
-                "bedrock:InvokeModel",
-                "bedrock:InvokeModelWithResponseStream"
+                "bedrock:InvokeModel"
             ],
-            resources=[
-                f"arn:aws:bedrock:us-east-1:{self.aws_account_id}:inference-profile/us.anthropic.claude-3-5-sonnet-20241022-v2:0"
-            ]
+            resources=["*"]  # Simplified to avoid ARN parsing issues
         )
         
         # Add Bedrock permissions to the file processor Lambda
