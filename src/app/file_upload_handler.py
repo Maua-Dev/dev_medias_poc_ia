@@ -14,7 +14,7 @@ def upload_base64_file_handler(event, context):
         "file_data": "base64_encoded_string_here"
     }
     """
-    body = json.loads(event.body)
+    body = json.loads(event.get("body"))
     bucket_name = os.environ.get('BUCKET_NAME')
     file_name = body.get('file_name')
     file_data = body.get('file_data')
@@ -32,7 +32,7 @@ def upload_base64_file_handler(event, context):
         
         return {
             'statusCode': 200,
-            'body': f'File {file_name} uploaded to bucket {bucket_name} successfully.'
+            'body': f'File {file_name} uploaded successfully.'
         }
     except Exception as e:
         return {
