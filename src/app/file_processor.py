@@ -7,7 +7,21 @@ from urllib.parse import unquote_plus
 def process_file_handler(event, context):
     """
     Lambda handler triggered by S3 events when files are uploaded to raw data bucket.
-    Processes the file using Claude Sonnet 3.5 to extract structured course data.
+    Processes the file using Claude Sonnet 3    except Exception as e:
+        print(f"Error calling Claude: {str(e)}")
+        print(f"Error type: {type(e).__name__}")
+        
+        # If it's a JSON parsing error, log more details
+        if "JSON" in str(e) or isinstance(e, json.JSONDecodeError):
+            print(f"JSON parsing error details:")
+            print(f"Response body keys: {list(response_body.keys()) if 'response_body' in locals() else 'N/A'}")
+            print(f"Claude response type: {type(claude_response) if 'claude_response' in locals() else 'N/A'}")
+            print(f"Claude response length: {len(claude_response) if 'claude_response' in locals() else 'N/A'}")
+            if 'claude_response' in locals():
+                print(f"Claude response first 1000 chars: {claude_response[:1000]}")
+        
+        # Return a default structure if Claude fails
+        return {{o extract structured course data.
     
     This function is triggered automatically when a file is uploaded to the raw data bucket.
     """
@@ -179,7 +193,10 @@ INSTRUÇÕES IMPORTANTES:
 8. COURSES: Identifique para quais cursos esta disciplina é oferecida e em que ano
 9. SEJA PRECISO: Use as informações EXATAS do documento, não invente dados
 
-Resposta JSON:
+FORMATO DE RESPOSTA:
+Retorne APENAS o JSON válido, sem texto adicional antes ou depois. Comece sua resposta com {{ e termine com }}.
+
+JSON:
 """
 
     try:
@@ -221,10 +238,32 @@ Resposta JSON:
         except json.JSONDecodeError:
             # If direct parsing fails, try to extract JSON from the response
             import re
-            json_match = re.search(r'\{.*\}', claude_response, re.DOTALL)
-            if json_match:
-                structured_data = json.loads(json_match.group())
-            else:
+            print(f"Direct JSON parsing failed. Attempting to extract JSON from response...")
+            print(f"Claude response preview: {claude_response[:500]}...")
+            
+            # Try multiple regex patterns to extract JSON
+            json_patterns = [
+                r'\{.*\}',  # Basic pattern
+                r'```json\s*(\{.*\})\s*```',  # JSON in code blocks
+                r'JSON:\s*(\{.*\})',  # JSON after "JSON:" label
+                r'```\s*(\{.*\})\s*```',  # JSON in any code blocks
+            ]
+            
+            structured_data = None
+            for pattern in json_patterns:
+                json_match = re.search(pattern, claude_response, re.DOTALL | re.IGNORECASE)
+                if json_match:
+                    try:
+                        # Extract the matched group (or the whole match if no groups)
+                        json_text = json_match.group(1) if json_match.groups() else json_match.group(0)
+                        structured_data = json.loads(json_text)
+                        print(f"Successfully extracted JSON using pattern: {pattern}")
+                        break
+                    except json.JSONDecodeError:
+                        continue
+            
+            if structured_data is None:
+                print(f"All JSON extraction attempts failed. Full Claude response: {claude_response}")
                 raise ValueError("Could not extract valid JSON from Claude's response")
         
         # Add token usage information to the structured data
