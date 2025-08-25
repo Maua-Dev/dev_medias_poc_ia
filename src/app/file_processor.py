@@ -35,10 +35,16 @@ def process_file_handler(event, context):
             try:
                 if object_key.lower().endswith(('.txt', '.csv', '.json')):
                     text_content = file_content.decode('utf-8')
+                elif object_key.lower().endswith('.pdf'):
+                    # For PDF files, indicate it's a PDF and include base64 preview
+                    import base64
+                    base64_content = base64.b64encode(file_content).decode('utf-8')
+                    text_content = f"PDF file content (base64): {base64_content[:1000]}..."
                 else:
                     # For other file types, convert to base64 for analysis
                     import base64
-                    text_content = f"Base64 content: {base64.b64encode(file_content).decode('utf-8')[:1000]}..."
+                    base64_content = base64.b64encode(file_content).decode('utf-8')
+                    text_content = f"Binary file content (base64): {base64_content[:1000]}..."
             except UnicodeDecodeError:
                 text_content = "Binary file content that couldn't be decoded"
             
@@ -157,7 +163,7 @@ INSTRUÇÕES IMPORTANTES:
    - Se encontrar texto como "com trabalhos e provas (quatro e duas substitutivas)", isso significa 4 provas
    - Conte APENAS as provas principais (P1, P2, P3, P4)
    - NÃO conte provas substitutivas ou de recuperação
-   - Se mencionar "quatro provas", crie: [{"name": "P1", "weight": 0.25}, {"name": "P2", "weight": 0.25}, {"name": "P3", "weight": 0.25}, {"name": "P4", "weight": 0.25}]
+   - Se mencionar "quatro provas", crie: [{{"name": "P1", "weight": 0.25}}, {{"name": "P2", "weight": 0.25}}, {{"name": "P3", "weight": 0.25}}, {{"name": "P4", "weight": 0.25}}]
 5. TRABALHOS:
    - Procure por "trabalhos", "Individual e/ou em Equipes"
    - Siga os pesos em K a quantidade de trabalhos inddicados
@@ -206,7 +212,7 @@ Resposta JSON:
         total_tokens = input_tokens + output_tokens
         
         print(f"Claude API Usage - Input tokens: {input_tokens}, Output tokens: {output_tokens}, Total tokens: {total_tokens}")
-        print(f"File: {filename} - Token cost: ${total_tokens * 0.000003:.6f}")  # Approximate cost for Claude 3.5 Sonnet
+        print(f"File: {filename} - Token cost: ${float(total_tokens * 0.000003):.6f}")  # Approximate cost for Claude 3.5 Sonnet
         
         # Extract JSON from Claude's response
         try:
@@ -226,7 +232,7 @@ Resposta JSON:
             'input_tokens': input_tokens,
             'output_tokens': output_tokens,
             'total_tokens': total_tokens,
-            'estimated_cost_usd': total_tokens * 0.000003
+            'estimated_cost_usd': float(total_tokens * 0.000003)
         }
         
         return structured_data
