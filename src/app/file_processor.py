@@ -187,12 +187,12 @@ Retorne APENAS o JSON válido, sem texto adicional antes ou depois. Comece sua r
         import base64
         encoded_bytes = base64.b64encode(content_data["content"]).decode('utf-8')
         message_content = [
-            {"text": schema_prompt},
+            {"type": "text", "text": schema_prompt},
             {
-                "document": {
-                    "format": "pdf",
-                    "name": filename,
-                    "source": {"bytes": encoded_bytes},
+                "type": "document",
+                "source": {
+                    "type": "pdf",
+                    "data": encoded_bytes,
                 }
             },
         ]
@@ -200,6 +200,7 @@ Retorne APENAS o JSON válido, sem texto adicional antes ou depois. Comece sua r
         # For text content
         message_content = [
             {
+                "type": "text",
                 "text": f"Conteúdo do arquivo '{filename}':\n{content_data['content']}\n\n{schema_prompt}",
             }
         ]
