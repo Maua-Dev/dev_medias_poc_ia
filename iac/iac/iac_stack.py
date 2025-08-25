@@ -1,9 +1,12 @@
+import hashlib
+import time
 import os
 from aws_cdk import (
     Duration,
     Stack,
     aws_lambda as _lambda,
     aws_s3 as s3,
+    aws_s3_notifications as s3n,
     aws_iam as iam,
     CfnOutput,
     RemovalPolicy
@@ -21,20 +24,27 @@ class IacStack(Stack):
         self.project_name = os.environ.get("PROJECT_NAME")
         self.aws_account_id = os.environ.get("AWS_ACCOUNT_ID")
 
-        # Create S3 bucket for file storage with unique name
-        import hashlib
-        import time
+        # Create S3 bucket for raw data storage with unique name
         unique_suffix = hashlib.md5(f"{self.project_name}-{self.aws_account_id}-{str(int(time.time()))}".encode()).hexdigest()[:8]
         
-        file_bucket = s3.Bucket(
+        raw_data_bucket = s3.Bucket(
             self,
-            "FileUploadBucket",
-            bucket_name=f"{self.project_name.lower()}-uploads-{unique_suffix}",
+            "RawDataBucket",
+            bucket_name=f"{self.project_name.lower()}-raw-data-{unique_suffix}",
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True
         )
 
-        # Create Lambda function for file upload
+        # Create S3 bucket for processed data
+        processed_data_bucket = s3.Bucket(
+            self,
+            "ProcessedDataBucket",
+            bucket_name=f"{self.project_name.lower()}-processed-data-{unique_suffix}",
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True
+        )
+
+        # Create Lambda function for file upload (uploads to raw data bucket)
         file_upload_fn = _lambda.Function(
             self,
             "FileUploadLambda",
@@ -42,14 +52,37 @@ class IacStack(Stack):
             code=_lambda.Code.from_asset("../src"),
             environment={
                 "STAGE": "TEST",
-                "BUCKET_NAME": file_bucket.bucket_name
+                "BUCKET_NAME": raw_data_bucket.bucket_name
             },
             handler="app.file_upload_handler.upload_base64_file_handler",
             timeout=Duration.seconds(30),
         )
 
-        # Grant S3 permissions to the file upload Lambda
-        file_bucket.grant_write(file_upload_fn)
+        # Create Lambda function for file processing (triggered by S3 events)
+        file_processor_fn = _lambda.Function(
+            self,
+            "FileProcessorLambda",
+            runtime=_lambda.Runtime.PYTHON_3_10,
+            code=_lambda.Code.from_asset("../src"),
+            environment={
+                "STAGE": "TEST",
+                "RAW_BUCKET": raw_data_bucket.bucket_name,
+                "PROCESSED_BUCKET": processed_data_bucket.bucket_name
+            },
+            handler="app.file_processor.process_file_handler",
+            timeout=Duration.seconds(60),
+        )
+
+        # Grant S3 permissions
+        raw_data_bucket.grant_write(file_upload_fn)
+        raw_data_bucket.grant_read(file_processor_fn)
+        processed_data_bucket.grant_write(file_processor_fn)
+
+        # Add S3 event notification to trigger file processor
+        raw_data_bucket.add_event_notification(
+            s3.EventType.OBJECT_CREATED,
+            s3n.LambdaDestination(file_processor_fn)
+        )
 
         # Create API Gateway for file upload with only POST method
         file_upload_api = apigateway.RestApi(
@@ -76,11 +109,18 @@ class IacStack(Stack):
             description="File Upload API Gateway URL (POST /upload)"
         )
 
-        # Output S3 bucket name
+        # Output S3 bucket names
         CfnOutput(
             self,
-            "S3BucketName",
-            value=file_bucket.bucket_name,
-            description="S3 Bucket for file uploads"
+            "RawDataBucketName",
+            value=raw_data_bucket.bucket_name,
+            description="S3 Bucket for raw data uploads"
+        )
+
+        CfnOutput(
+            self,
+            "ProcessedDataBucketName",
+            value=processed_data_bucket.bucket_name,
+            description="S3 Bucket for processed data"
         )
 
