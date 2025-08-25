@@ -183,19 +183,17 @@ Retorne APENAS o JSON válido, sem texto adicional antes ou depois. Comece sua r
 
     # Prepare the message content based on the content type
     if content_data["type"] == "document":
-        # For PDF documents using the new structure
+        # For PDF documents using the new structure - encode bytes to base64
+        import base64
+        encoded_bytes = base64.b64encode(content_data["content"]).decode('utf-8')
         message_content = [
+            {"text": schema_prompt},
             {
                 "document": {
                     "format": "pdf",
                     "name": filename,
-                    "source": {
-                        "bytes": content_data["content"],
-                    },
-                },
-            },
-            {
-                "text": schema_prompt,
+                    "source": {"bytes": encoded_bytes},
+                }
             },
         ]
     else:
