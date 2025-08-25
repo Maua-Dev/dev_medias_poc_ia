@@ -81,7 +81,7 @@ class IacStack(Stack):
                 "bedrock:InvokeModelWithResponseStream"
             ],
             resources=[
-                f"arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0"
+                f"arn:aws:bedrock:us-east-1::foundation-model/us.anthropic.claude-3-5-sonnet-20241022-v2:0"
             ]
         )
         

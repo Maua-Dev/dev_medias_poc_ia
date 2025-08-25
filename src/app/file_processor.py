@@ -202,9 +202,9 @@ JSON Response:
 """
 
     try:
-        # Call Claude Sonnet 3.5
+        # Call Claude Sonnet 3.5 using cross-region inference profile
         response = bedrock_client.invoke_model(
-            modelId='anthropic.claude-3-5-sonnet-20241022-v2:0',
+            modelId='us.anthropic.claude-3-5-sonnet-20241022-v2:0',
             contentType='application/json',
             accept='application/json',
             body=json.dumps({
