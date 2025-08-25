@@ -191,7 +191,8 @@ Retorne APENAS o JSON válido, sem texto adicional antes ou depois. Comece sua r
             {
                 "type": "document",
                 "source": {
-                    "type": "pdf",
+                    "type": "base64",
+                    "media_type": "application/pdf",
                     "data": encoded_bytes,
                 }
             },
