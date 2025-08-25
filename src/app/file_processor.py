@@ -93,38 +93,46 @@ def extract_course_data_with_claude(bedrock_client, content, filename):
     schema = {
         "type": "object",
         "properties": {
-            "course": {"type": "string"},
-            "name": {"type": "string"},
-            "code": {"type": "string"},
-            "period": {"type": "string"},
-            "examWeight": {"type": "number"},
-            "assignmentWeight": {"type": "number"},
+            "course": {"type": "string", "description": "Nome do curso (ex: Design, Engenharia)"},
+            "name": {"type": "string", "description": "Nome completo da disciplina"},
+            "code": {"type": "string", "description": "Código da disciplina (ex: DSG244)"},
+            "period": {"type": "string", "enum": ["A", "S"], "description": "A para Anual, S para Semestral"},
+            "examWeight": {"type": "number", "minimum": 0, "maximum": 100, "description": "Peso das provas em %"},
+            "assignmentWeight": {"type": "number", "minimum": 0, "maximum": 100, "description": "Peso dos trabalhos em %"},
             "exams": {
                 "type": "array",
+                "maxItems": 4,
                 "items": {
                     "type": "object",
                     "properties": {
-                        "name": {"type": "string"},
-                        "weight": {"type": "number"}
+                        "name": {"type": "string", "enum": ["P1", "P2", "P3", "P4"]},
+                        "weight": {"type": "number", "minimum": 0, "maximum": 1}
                     },
                     "required": ["name", "weight"]
                 }
             },
             "assignments": {
                 "type": "array",
+                "maxItems": 10,
                 "items": {
                     "type": "object",
                     "properties": {
-                        "name": {"type": "string"},
-                        "weight": {"type": "number"}
+                        "name": {"type": "string", "enum": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10"]},
+                        "weight": {"type": "number", "minimum": 0, "maximum": 1}
                     },
                     "required": ["name", "weight"]
                 }
             },
             "courses": {
                 "type": "object",
+                "description": "Informações sobre quais cursos possuem esta disciplina e em qual ano",
                 "patternProperties": {
-                    "^[A-Z]{3}$": {"type": "number"}
+                    "^(EAL|ECA|ECM|EEN|EET|EMC|EPM|EQM|ETC|ADM|DSG|CIC|SIN|IA|ARQ|RI|ADS)$": {
+                        "type": "number",
+                        "minimum": 1,
+                        "maximum": 5,
+                        "description": "Ano do curso (1 a 5)"
+                    }
                 }
             }
         },
@@ -144,16 +152,23 @@ Instruções:
 1. Extraia informações da disciplina PRINCIPAL mencionada no conteúdo
 2. Se múltiplas disciplinas forem mencionadas, foque na principal
 3. Para PERÍODO: Use "A" para cursos ANUAIS, "S" para cursos SEMESTRAIS
-4. Para PROVAS (Avaliação): 
+4. Para PROVAS (exams): 
    - Procure pelo NÚMERO DE PROVAS mencionado na seção de avaliação
    - NÃO considere "SUBSTITUTIVA" (prova substituta) na contagem
-   - Nomeie como P1, P2, P3, P4 baseado no número real encontrado
-   - Se não encontrar, use lista vazia []
-5. Para TRABALHOS: Procure por T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 (até T10). Se não encontrar, use lista vazia []
-6. Garanta que os pesos das provas e trabalhos somem 1.0 dentro de seus respectivos arrays (se encontrados)
-7. Se nenhuma prova ou trabalho for encontrado, defina os respectivos arrays como vazios []
-8. Se informações estiverem faltando, faça suposições razoáveis baseadas em estruturas acadêmicas típicas
-9. Retorne apenas JSON válido que corresponda ao esquema (um objeto de disciplina única)
+   - Use apenas nomes: "P1", "P2", "P3", "P4" baseado no número real encontrado
+   - Máximo 4 provas. Se não encontrar, use lista vazia []
+5. Para TRABALHOS (assignments): 
+   - Procure por trabalhos/atividades
+   - Use apenas nomes: "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10"
+   - Máximo 10 trabalhos. Se não encontrar, use lista vazia []
+6. Para PESOS (weight): Use valores decimais entre 0 e 1 (ex: 0.5 para 50%)
+7. Garanta que os pesos das provas somem 1.0 e os pesos dos trabalhos somem 1.0
+8. Para examWeight e assignmentWeight: Use valores inteiros de 0 a 100 (porcentagem)
+9. Para COURSES: Use os códigos dos cursos que possuem esta disciplina e o ano correspondente
+   - Códigos válidos: EAL, ECA, ECM, EEN, EET, EMC, EPM, EQM, ETC, ADM, DSG, CIC, SIN, IA, ARQ, RI, ADS
+   - Exemplo: {{"ECM": 2, "DSG": 3}} significa que a disciplina está no 2º ano de Eng. Computação e 3º ano de Design
+   - Se não encontrar informações sobre cursos, use objeto vazio {{}}
+10. Retorne APENAS um objeto JSON válido, sem texto adicional
 
 Resposta JSON:
 """
