@@ -188,7 +188,7 @@ JSON:
     try:
         # Call Claude Sonnet 4 using cross-region inference profile
         response = bedrock_client.invoke_model(
-            modelId='anthropic.claude-sonnet-4-20250514-v1:0',
+            modelId='us.anthropic.claude-sonnet-4-20250514-v1:0',
             contentType='application/json',
             accept='application/json',
             body=json.dumps({
