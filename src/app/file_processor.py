@@ -59,7 +59,8 @@ def process_file_handler(event, context):
                     'original-bucket': bucket_name,
                     'original-key': object_key,
                     'processed-timestamp': str(context.aws_request_id),
-                    'model-used': 'claude-3-5-sonnet'
+                    'model-used': 'claude-3-5-sonnet',
+                    'tokens-used': str(structured_data.get('token_usage', {}).get('total_tokens', 0))
                 }
             )
             
@@ -224,6 +225,15 @@ JSON Response:
         response_body = json.loads(response['body'].read())
         claude_response = response_body['content'][0]['text']
         
+        # Log token usage information
+        usage = response_body.get('usage', {})
+        input_tokens = usage.get('input_tokens', 0)
+        output_tokens = usage.get('output_tokens', 0)
+        total_tokens = input_tokens + output_tokens
+        
+        print(f"Claude API Usage - Input tokens: {input_tokens}, Output tokens: {output_tokens}, Total tokens: {total_tokens}")
+        print(f"File: {filename} - Token cost: ${total_tokens * 0.000003:.6f}")  # Approximate cost for Claude 3.5 Sonnet
+        
         # Extract JSON from Claude's response
         try:
             # Try to parse the JSON directly
@@ -236,6 +246,14 @@ JSON Response:
                 structured_data = json.loads(json_match.group())
             else:
                 raise ValueError("Could not extract valid JSON from Claude's response")
+        
+        # Add token usage information to the structured data
+        structured_data['token_usage'] = {
+            'input_tokens': input_tokens,
+            'output_tokens': output_tokens,
+            'total_tokens': total_tokens,
+            'estimated_cost_usd': total_tokens * 0.000003
+        }
         
         return structured_data
         
