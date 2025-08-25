@@ -70,8 +70,23 @@ class IacStack(Stack):
                 "PROCESSED_BUCKET": processed_data_bucket.bucket_name
             },
             handler="app.file_processor.process_file_handler",
-            timeout=Duration.seconds(60),
+            timeout=Duration.seconds(180),  # Increased timeout for LLM processing
         )
+
+        # Create IAM policy for Bedrock access
+        bedrock_policy = iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=[
+                "bedrock:InvokeModel",
+                "bedrock:InvokeModelWithResponseStream"
+            ],
+            resources=[
+                f"arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0"
+            ]
+        )
+        
+        # Add Bedrock permissions to the file processor Lambda
+        file_processor_fn.add_to_role_policy(bedrock_policy)
 
         # Grant S3 permissions
         raw_data_bucket.grant_write(file_upload_fn)
