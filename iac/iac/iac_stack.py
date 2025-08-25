@@ -90,8 +90,22 @@ class IacStack(Stack):
 
         # Grant S3 permissions
         raw_data_bucket.grant_write(file_upload_fn)
-        raw_data_bucket.grant_read(file_processor_fn)
+        raw_data_bucket.grant_read_write(file_processor_fn)
         processed_data_bucket.grant_write(file_processor_fn)
+
+        # Add explicit S3 permissions for file upload Lambda (additional permissions)
+        file_upload_s3_policy = iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            actions=[
+                "s3:PutObject",
+                "s3:PutObjectAcl",
+                "s3:GetObject"
+            ],
+            resources=[
+                f"{raw_data_bucket.bucket_arn}/*"
+            ]
+        )
+        file_upload_fn.add_to_role_policy(file_upload_s3_policy)
 
         # Add S3 event notification to trigger file processor
         raw_data_bucket.add_event_notification(
