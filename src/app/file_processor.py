@@ -93,7 +93,7 @@ def extract_course_data_with_claude(bedrock_client, content, filename):
     schema = {
         "type": "object",
         "properties": {
-            "course": {"type": "string", "description": "Nome do curso (ex: Design, Engenharia)"},
+            "course": {"type": "string", "description": "Nome completo do curso"},
             "name": {"type": "string", "description": "Nome completo da disciplina"},
             "code": {"type": "string", "description": "Código da disciplina (ex: DSG244)"},
             "period": {"type": "string", "enum": ["A", "S"], "description": "A para Anual, S para Semestral"},
@@ -148,27 +148,30 @@ Conteúdo do arquivo '{filename}':
 Por favor, extraia os dados da disciplina e formate de acordo com este esquema JSON:
 {json.dumps(schema, indent=2)}
 
-Instruções:
-1. Extraia informações da disciplina PRINCIPAL mencionada no conteúdo
-2. Se múltiplas disciplinas forem mencionadas, foque na principal
-3. Para PERÍODO: Use "A" para cursos ANUAIS, "S" para cursos SEMESTRAIS
-4. Para PROVAS (exams): 
-   - Procure pelo NÚMERO DE PROVAS mencionado na seção de avaliação
-   - NÃO considere "SUBSTITUTIVA" (prova substituta) na contagem
-   - Use apenas nomes: "P1", "P2", "P3", "P4" baseado no número real encontrado
-   - Máximo 4 provas. Se não encontrar, use lista vazia []
-5. Para TRABALHOS (assignments): 
-   - Procure por trabalhos/atividades
-   - Use apenas nomes: "T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10"
-   - Máximo 10 trabalhos. Se não encontrar, use lista vazia []
-6. Para PESOS (weight): Use valores decimais entre 0 e 1 (ex: 0.5 para 50%)
-7. Garanta que os pesos das provas somem 1.0 e os pesos dos trabalhos somem 1.0
-8. Para examWeight e assignmentWeight: Use valores inteiros de 0 a 100 (porcentagem)
-9. Para COURSES: Use os códigos dos cursos que possuem esta disciplina e o ano correspondente
-   - Códigos válidos: EAL, ECA, ECM, EEN, EET, EMC, EPM, EQM, ETC, ADM, DSG, CIC, SIN, IA, ARQ, RI, ADS
-   - Exemplo: {{"ECM": 2, "DSG": 3}} significa que a disciplina está no 2º ano de Eng. Computação e 3º ano de Design
-   - Se não encontrar informações sobre cursos, use objeto vazio {{}}
-10. Retorne APENAS um objeto JSON válido, sem texto adicional
+INSTRUÇÕES IMPORTANTES:
+1. NOME DA DISCIPLINA: Extraia o nome EXATO da disciplina conforme aparece no plano de ensino
+2. CÓDIGO: Extraia o código exato da disciplina (ex: ECM401)
+3. PERÍODO: Use "A" para disciplinas ANUAIS, "S" para disciplinas SEMESTRAIS
+4. PROVAS: 
+   - Procure pela seção "AVALIAÇÃO" ou "INSTRUMENTOS DE AVALIAÇÃO"
+   - Se encontrar texto como "com trabalhos e provas (quatro e duas substitutivas)", isso significa 4 provas
+   - Conte APENAS as provas principais (P1, P2, P3, P4)
+   - NÃO conte provas substitutivas ou de recuperação
+   - Se mencionar "quatro provas", crie: [{"name": "P1", "weight": 0.25}, {"name": "P2", "weight": 0.25}, {"name": "P3", "weight": 0.25}, {"name": "P4", "weight": 0.25}]
+5. TRABALHOS:
+   - Procure por "trabalhos", "Individual e/ou em Equipes"
+   - Siga os pesos em K a quantidade de trabalhos inddicados
+6. PESOS PERCENTUAIS (IMPORTANTE):
+   - Procure por "Peso de MT(%)" e "Peso de MP(%)" na seção de avaliação
+   - MT = Média dos Trabalhos, MP = Média de Prova
+   - Se encontrar "Peso de MP(%): 0,7" significa examWeight = 70
+   - Se encontrar "Peso de MT(%): 0,3" significa assignmentWeight = 30
+   - examWeight + assignmentWeight DEVE somar 100
+7. PESOS INDIVIDUAIS:
+   - Para cada prova/trabalho: peso individual que soma 1.0 dentro do respectivo array
+   - Ex: 4 provas = 0.25 cada; 3 trabalhos = 0.33, 0.33, 0.34
+8. COURSES: Identifique para quais cursos esta disciplina é oferecida e em que ano
+9. SEJA PRECISO: Use as informações EXATAS do documento, não invente dados
 
 Resposta JSON:
 """
