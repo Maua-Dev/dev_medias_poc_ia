@@ -31,25 +31,25 @@ def process_file_handler(event, context):
             response = s3.get_object(Bucket=bucket_name, Key=object_key)
             file_content = response['Body'].read()
             
-            # Try to decode the file content as text
-            try:
-                if object_key.lower().endswith(('.txt', '.csv', '.json')):
+            # Try to decode the file content as text or prepare for document analysis
+            content_for_claude = None
+            if object_key.lower().endswith(('.txt', '.csv', '.json')):
+                try:
                     text_content = file_content.decode('utf-8')
-                elif object_key.lower().endswith('.pdf'):
-                    # For PDF files, indicate it's a PDF and include base64 preview
-                    import base64
-                    base64_content = base64.b64encode(file_content).decode('utf-8')
-                    text_content = f"PDF file content (base64): {base64_content[:1000]}..."
-                else:
-                    # For other file types, convert to base64 for analysis
-                    import base64
-                    base64_content = base64.b64encode(file_content).decode('utf-8')
-                    text_content = f"Binary file content (base64): {base64_content[:1000]}..."
-            except UnicodeDecodeError:
-                text_content = "Binary file content that couldn't be decoded"
+                    content_for_claude = {"type": "text", "content": text_content}
+                except UnicodeDecodeError:
+                    content_for_claude = {"type": "text", "content": "Binary file content that couldn't be decoded"}
+            elif object_key.lower().endswith('.pdf'):
+                # For PDF files, use the new document structure
+                content_for_claude = {"type": "document", "content": file_content}
+            else:
+                # For other file types, convert to base64 for analysis
+                import base64
+                base64_content = base64.b64encode(file_content).decode('utf-8')
+                content_for_claude = {"type": "text", "content": f"Binary file content (base64): {base64_content[:1000]}..."}
             
             # Call Claude Sonnet 4 to extract structured course data
-            structured_data = extract_course_data_with_claude(bedrock, text_content, object_key)
+            structured_data = extract_course_data_with_claude(bedrock, content_for_claude, object_key)
             print(structured_data)
             
             # Create the processed file with structured data
@@ -90,7 +90,7 @@ def process_file_handler(event, context):
         }
 
 
-def extract_course_data_with_claude(bedrock_client, content, filename):
+def extract_course_data_with_claude(bedrock_client, content_data, filename):
     """
     Use Claude Sonnet 4 to extract structured course data from the content
     """
@@ -145,11 +145,9 @@ def extract_course_data_with_claude(bedrock_client, content, filename):
         "required": ["course", "name", "code", "period", "examWeight", "assignmentWeight", "exams", "assignments"]
     }
     
-    prompt = f"""
-Analise o conteúdo a seguir e extraia informações de UMA disciplina específica no formato JSON especificado.
-
-Conteúdo do arquivo '{filename}':
-{content}
+    # Create the base prompt for JSON schema
+    schema_prompt = f"""
+Analise o conteúdo do documento e extraia informações de UMA disciplina específica no formato JSON especificado.
 
 Por favor, extraia os dados da disciplina e formate de acordo com este esquema JSON:
 {json.dumps(schema, indent=2)}
@@ -181,9 +179,32 @@ INSTRUÇÕES IMPORTANTES:
 
 FORMATO DE RESPOSTA:
 Retorne APENAS o JSON válido, sem texto adicional antes ou depois. Comece sua resposta com {{ e termine com }}.
-
-JSON:
 """
+
+    # Prepare the message content based on the content type
+    if content_data["type"] == "document":
+        # For PDF documents using the new structure
+        message_content = [
+            {
+                "document": {
+                    "format": "pdf",
+                    "name": filename,
+                    "source": {
+                        "bytes": content_data["content"],
+                    },
+                },
+            },
+            {
+                "text": schema_prompt,
+            },
+        ]
+    else:
+        # For text content
+        message_content = [
+            {
+                "text": f"Conteúdo do arquivo '{filename}':\n{content_data['content']}\n\n{schema_prompt}",
+            }
+        ]
 
     try:
         # Call Claude Sonnet 4 using cross-region inference profile
@@ -197,7 +218,7 @@ JSON:
                 "messages": [
                     {
                         "role": "user",
-                        "content": prompt
+                        "content": message_content
                     }
                 ],
                 "temperature": 0.1
@@ -265,9 +286,16 @@ JSON:
     except Exception as e:
         print(f"Error calling Claude: {str(e)}")
         # Return a default structure if Claude fails
+        content_preview = ""
+        if content_data["type"] == "text":
+            content_text = content_data["content"]
+            content_preview = content_text[:500] + "..." if len(content_text) > 500 else content_text
+        else:
+            content_preview = f"Document file: {filename}"
+            
         return {
             "course": "Unknown",
-            "name": "Unknown Subject",
+            "name": "Unknown Subject", 
             "code": "UNK000",
             "period": "Unknown",
             "examWeight": 50,
@@ -276,5 +304,5 @@ JSON:
             "assignments": [],
             "courses": {},
             "error": f"Failed to process with Claude: {str(e)}",
-            "original_content_preview": content[:500] + "..." if len(content) > 500 else content
+            "original_content_preview": content_preview
         }
