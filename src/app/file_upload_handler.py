@@ -1,4 +1,5 @@
 import base64
+import json
 import boto3
 import os
 
@@ -13,9 +14,10 @@ def upload_base64_file_handler(event, context):
         "file_data": "base64_encoded_string_here"
     }
     """
+    body = json.loads(event.body)
     bucket_name = os.environ.get('BUCKET_NAME')
-    file_name = event.get('file_name')
-    file_data = event.get('file_data')
+    file_name = body.get('file_name')
+    file_data = body.get('file_data')
     
     if not bucket_name or not file_name or not file_data:
         return {
