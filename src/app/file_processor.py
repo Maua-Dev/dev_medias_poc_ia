@@ -89,117 +89,73 @@ def extract_course_data_with_claude(bedrock_client, content, filename):
     Use Claude Sonnet 3.5 to extract structured course data from the content
     """
     
-    # Define the JSON schema for course data
+    # Define the JSON schema for a single subject
     schema = {
         "type": "object",
         "properties": {
+            "course": {"type": "string"},
+            "name": {"type": "string"},
+            "code": {"type": "string"},
+            "period": {"type": "string"},
+            "examWeight": {"type": "number"},
+            "assignmentWeight": {"type": "number"},
+            "exams": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "weight": {"type": "number"}
+                    },
+                    "required": ["name", "weight"]
+                }
+            },
+            "assignments": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "weight": {"type": "number"}
+                    },
+                    "required": ["name", "weight"]
+                }
+            },
             "courses": {
                 "type": "object",
                 "patternProperties": {
-                    "^[A-Z]{3}[0-9]{3}$": {
-                        "type": "object",
-                        "properties": {
-                            "course": {"type": "string"},
-                            "name": {"type": "string"},
-                            "code": {"type": "string"},
-                            "period": {"type": "string"},
-                            "examWeight": {"type": "number"},
-                            "assignmentWeight": {"type": "number"},
-                            "exams": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "name": {"type": "string"},
-                                        "weight": {"type": "number"}
-                                    },
-                                    "required": ["name", "weight"]
-                                }
-                            },
-                            "assignments": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "name": {"type": "string"},
-                                        "weight": {"type": "number"}
-                                    },
-                                    "required": ["name", "weight"]
-                                }
-                            },
-                            "courses": {
-                                "type": "object",
-                                "patternProperties": {
-                                    "^[A-Z]{3}$": {"type": "number"}
-                                }
-                            }
-                        },
-                        "required": ["course", "name", "code", "period", "examWeight", "assignmentWeight", "exams", "assignments"]
-                    }
+                    "^[A-Z]{3}$": {"type": "number"}
                 }
             }
         },
-        "required": ["courses"]
+        "required": ["course", "name", "code", "period", "examWeight", "assignmentWeight", "exams", "assignments"]
     }
     
     prompt = f"""
-Analyze the following content and extract course information in the specified JSON format.
+Analise o conteúdo a seguir e extraia informações de UMA disciplina específica no formato JSON especificado.
 
-Content from file '{filename}':
+Conteúdo do arquivo '{filename}':
 {content}
 
-Please extract course data and format it according to this JSON schema:
+Por favor, extraia os dados da disciplina e formate de acordo com este esquema JSON:
 {json.dumps(schema, indent=2)}
 
-Example of expected output format:
-{{
-  "courses": {{
-    "DSG244": {{
-      "course": "Design",
-      "name": "Estudos e Pesquisas Mercadológicas",
-      "code": "DSG244",
-      "period": "S",
-      "examWeight": 50,
-      "assignmentWeight": 50,
-      "exams": [
-        {{
-          "name": "P1",
-          "weight": 0.5
-        }},
-        {{
-          "name": "P2",
-          "weight": 0.5
-        }}
-      ],
-      "assignments": [
-        {{
-          "name": "T1",
-          "weight": 0.4
-        }},
-        {{
-          "name": "T2",
-          "weight": 0.4
-        }},
-        {{
-          "name": "T3",
-          "weight": 0.2
-        }}
-      ],
-      "courses": {{
-        "DSG": 2
-      }}
-    }}
-  }}
-}}
+Instruções:
+1. Extraia informações da disciplina PRINCIPAL mencionada no conteúdo
+2. Se múltiplas disciplinas forem mencionadas, foque na principal
+3. Para PERÍODO: Use "A" para cursos ANUAIS, "S" para cursos SEMESTRAIS
+4. Para PROVAS (Avaliação): 
+   - Procure pelo NÚMERO DE PROVAS mencionado na seção de avaliação
+   - NÃO considere "SUBSTITUTIVA" (prova substituta) na contagem
+   - Nomeie como P1, P2, P3, P4 baseado no número real encontrado
+   - Se não encontrar, use lista vazia []
+5. Para TRABALHOS: Procure por T1, T2, T3, T4, T5, T6, T7, T8, T9, T10 (até T10). Se não encontrar, use lista vazia []
+6. Garanta que os pesos das provas e trabalhos somem 1.0 dentro de seus respectivos arrays (se encontrados)
+7. Se nenhuma prova ou trabalho for encontrado, defina os respectivos arrays como vazios []
+8. Se informações estiverem faltando, faça suposições razoáveis baseadas em estruturas acadêmicas típicas
+9. Retorne apenas JSON válido que corresponda ao esquema (um objeto de disciplina única)
 
-Instructions:
-1. Extract all course information from the content
-2. Use course codes as keys (e.g., "DSG244")
-3. Ensure exam weights and assignment weights sum to 1.0 within their respective arrays
-4. If information is missing, make reasonable assumptions based on typical academic structures
-5. Return only valid JSON that matches the schema
-
-JSON Response:
+Resposta JSON:
 """
 
     try:
@@ -261,6 +217,14 @@ JSON Response:
         print(f"Error calling Claude: {str(e)}")
         # Return a default structure if Claude fails
         return {
+            "course": "Unknown",
+            "name": "Unknown Subject",
+            "code": "UNK000",
+            "period": "Unknown",
+            "examWeight": 50,
+            "assignmentWeight": 50,
+            "exams": [],
+            "assignments": [],
             "courses": {},
             "error": f"Failed to process with Claude: {str(e)}",
             "original_content_preview": content[:500] + "..." if len(content) > 500 else content
