@@ -1,5 +1,3 @@
-import hashlib
-import time
 import os
 from aws_cdk import (
     Duration,
@@ -24,13 +22,11 @@ class IacStack(Stack):
         self.project_name = os.environ.get("PROJECT_NAME")
         self.aws_account_id = os.environ.get("AWS_ACCOUNT_ID")
 
-        # Create S3 bucket for raw data storage with unique name
-        unique_suffix = hashlib.md5(f"{self.project_name}-{self.aws_account_id}-{str(int(time.time()))}".encode()).hexdigest()[:8]
-        
+        # Create S3 bucket for raw data storage
         raw_data_bucket = s3.Bucket(
             self,
             "RawDataBucket",
-            bucket_name=f"{self.project_name.lower()}-raw-data-{unique_suffix}",
+            bucket_name=f"{self.project_name.lower()}-raw-data-bucket",
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True
         )
@@ -39,7 +35,7 @@ class IacStack(Stack):
         processed_data_bucket = s3.Bucket(
             self,
             "ProcessedDataBucket",
-            bucket_name=f"{self.project_name.lower()}-processed-data-{unique_suffix}",
+            bucket_name=f"{self.project_name.lower()}-processed-data-bucket",
             removal_policy=RemovalPolicy.DESTROY,
             auto_delete_objects=True
         )
