@@ -7,21 +7,7 @@ from urllib.parse import unquote_plus
 def process_file_handler(event, context):
     """
     Lambda handler triggered by S3 events when files are uploaded to raw data bucket.
-    Processes the file using Claude Sonnet 3    except Exception as e:
-        print(f"Error calling Claude: {str(e)}")
-        print(f"Error type: {type(e).__name__}")
-        
-        # If it's a JSON parsing error, log more details
-        if "JSON" in str(e) or isinstance(e, json.JSONDecodeError):
-            print(f"JSON parsing error details:")
-            print(f"Response body keys: {list(response_body.keys()) if 'response_body' in locals() else 'N/A'}")
-            print(f"Claude response type: {type(claude_response) if 'claude_response' in locals() else 'N/A'}")
-            print(f"Claude response length: {len(claude_response) if 'claude_response' in locals() else 'N/A'}")
-            if 'claude_response' in locals():
-                print(f"Claude response first 1000 chars: {claude_response[:1000]}")
-        
-        # Return a default structure if Claude fails
-        return {{o extract structured course data.
+    Processes the file using Claude Sonnet 4 to extract structured course data.
     
     This function is triggered automatically when a file is uploaded to the raw data bucket.
     """
@@ -62,7 +48,7 @@ def process_file_handler(event, context):
             except UnicodeDecodeError:
                 text_content = "Binary file content that couldn't be decoded"
             
-            # Call Claude Sonnet 3.5 to extract structured course data
+            # Call Claude Sonnet 4 to extract structured course data
             structured_data = extract_course_data_with_claude(bedrock, text_content, object_key)
             print(structured_data)
             
@@ -79,7 +65,7 @@ def process_file_handler(event, context):
                     'original-bucket': bucket_name,
                     'original-key': object_key,
                     'processed-timestamp': str(context.aws_request_id),
-                    'model-used': 'claude-3-5-sonnet',
+                    'model-used': 'claude-4-sonnet',
                     'tokens-used': str(structured_data.get('token_usage', {}).get('total_tokens', 0))
                 }
             )
@@ -89,7 +75,7 @@ def process_file_handler(event, context):
         return {
             'statusCode': 200,
             'body': json.dumps({
-                'message': 'Files processed successfully with Claude Sonnet 3.5',
+                'message': 'Files processed successfully with Claude Sonnet 4',
                 'processed_files': len(event['Records'])
             })
         }
@@ -106,7 +92,7 @@ def process_file_handler(event, context):
 
 def extract_course_data_with_claude(bedrock_client, content, filename):
     """
-    Use Claude Sonnet 3.5 to extract structured course data from the content
+    Use Claude Sonnet 4 to extract structured course data from the content
     """
     
     # Define the JSON schema for a single subject
@@ -200,9 +186,9 @@ JSON:
 """
 
     try:
-        # Call Claude Sonnet 3.5 using cross-region inference profile
+        # Call Claude Sonnet 4 using cross-region inference profile
         response = bedrock_client.invoke_model(
-            modelId='us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+            modelId='us.anthropic.claude-4-sonnet-20250109-v1:0',
             contentType='application/json',
             accept='application/json',
             body=json.dumps({
@@ -229,7 +215,7 @@ JSON:
         total_tokens = input_tokens + output_tokens
         
         print(f"Claude API Usage - Input tokens: {input_tokens}, Output tokens: {output_tokens}, Total tokens: {total_tokens}")
-        print(f"File: {filename} - Token cost: ${float(total_tokens * 0.000003):.6f}")  # Approximate cost for Claude 3.5 Sonnet
+        print(f"File: {filename} - Token cost: ${float(total_tokens * 0.000015):.6f}")  # Approximate cost for Claude 4 Sonnet
         
         # Extract JSON from Claude's response
         try:
@@ -271,7 +257,7 @@ JSON:
             'input_tokens': input_tokens,
             'output_tokens': output_tokens,
             'total_tokens': total_tokens,
-            'estimated_cost_usd': float(total_tokens * 0.000003)
+            'estimated_cost_usd': float(total_tokens * 0.000015)
         }
         
         return structured_data
